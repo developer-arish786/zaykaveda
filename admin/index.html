@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin — Zaykaveda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+body{background:var(--soft)}
+.login{min-height:100vh;display:grid;place-items:center;padding:20px}
+.login .card{width:min(400px,100%)}
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:20px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.side .logo{padding:0 10px 18px}
+.side button.nav-i{display:flex;align-items:center;gap:10px;text-align:left;background:none;border:0;border-radius:10px;padding:10px 12px;font-size:.92rem;font-weight:600;color:var(--muted)}
+.side button.nav-i:hover{background:var(--soft)}.side button.nav-i.on{background:var(--accent-soft);color:var(--accent)}
+.side .badge{margin-left:auto;background:var(--accent);color:#fff;border-radius:999px;font-size:.7rem;padding:1px 8px}
+.side .sp{flex:1}
+.main{padding:28px clamp(16px,3vw,40px);min-width:0}
+.main h2{font-size:1.9rem;margin-bottom:20px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px}
+.kpi small{color:var(--muted);font-weight:600}.kpi strong{display:block;font-family:var(--display);font-size:1.8rem;margin-top:4px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:20px;overflow:hidden}
+.panel h3{margin-bottom:14px;font-size:1.1rem}
+.tbl{width:100%;border-collapse:collapse;font-size:.9rem}
+.tbl th{text-align:left;color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line)}
+.tbl td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl tr:last-child td{border:0}
+.scroll{overflow-x:auto}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.bars{display:flex;align-items:flex-end;gap:6px;height:170px;padding-top:10px}
+.bars div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;min-width:0}
+.bars i{display:block;width:100%;max-width:34px;background:var(--accent-2);border-radius:6px 6px 0 0;min-height:2px}
+.bars small{font-size:.62rem;color:var(--muted);margin-top:4px}
+.bars span{font-size:.62rem;font-weight:700;margin-bottom:2px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;place-items:center;z-index:100;padding:16px}
+.modal-bg.open{display:grid}
+.modal{background:var(--surface);border-radius:20px;padding:24px;width:min(520px,100%);max-height:92vh;overflow:auto}
+.top-m{display:none}
+.row-flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.row-flex .input,.row-flex select{width:auto;flex:1 1 160px}
+.chk{display:flex;align-items:center;gap:8px;font-size:.9rem}.chk input{width:auto}
+@media(max-width:820px){
+  .app{grid-template-columns:1fr}
+  .side{position:fixed;left:0;top:0;width:250px;z-index:60;transform:translateX(-100%);transition:.25s;box-shadow:10px 0 30px rgba(0,0,0,.1)}
+  .side.open{transform:none}
+  .top-m{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-bottom:1px solid var(--line);padding:10px 16px;position:sticky;top:0;z-index:40}
+  .top-m button{background:none;border:0;font-size:1.5rem}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="modal-bg" id="mbg"><div class="modal" id="modal"></div></div>
+<script src="../assets/config.js"></script>
+<script>
+const API = window.ZAYKAVEDA.API_URL;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const rs = n => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+let TOKEN = ""; try { TOKEN = sessionStorage.getItem("zv_admin") || ""; } catch {}
+let view = "dashboard", STATE = {};
+
+async function api(path, method = "GET", body) {
+  let r;
+  try { r = await fetch(API + path, { method, headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN }, body: body ? JSON.stringify(body) : undefined }); }
+  catch { throw new Error("Cannot reach the server."); }
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== "/api/admin/login") { logout(true); throw new Error("Session expired"); }
+  if (!r.ok) throw new Error(d.error || "Error");
+  return d;
+}
+function toast(m) { let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); } t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); }
+
+/* ---------------- login ---------------- */
+function showLogin(msg = "") {
+  $("#root").innerHTML = `<div class="login"><form class="card form" id="lf">
+    <a class="logo" href="../index.html">Zayka<span>veda</span></a><h3>Owner login</h3>
+    <p style="color:var(--muted);font-size:.9rem">Sign in to manage orders, menu, staff and income.</p>
+    ${msg ? `<div class="alert err">${esc(msg)}</div>` : ""}
+    <div><label>Password</label><input class="input" type="password" id="pw" required autofocus autocomplete="current-password"></div>
+    <button class="btn btn-primary">Sign in</button><a href="../index.html" style="font-size:.85rem;color:var(--muted);text-align:center">← Back to website</a></form></div>`;
+  $("#lf").onsubmit = async e => {
+    e.preventDefault();
+    try { const d = await api("/api/admin/login", "POST", { password: $("#pw").value }); TOKEN = d.token; try { sessionStorage.setItem("zv_admin", TOKEN); } catch {} boot(); }
+    catch (err) { showLogin(err.message); }
+  };
+}
+function logout(silent) { if (!silent) api("/api/admin/logout", "POST").catch(() => {}); TOKEN = ""; try { sessionStorage.removeItem("zv_admin"); } catch {} showLogin(silent ? "Session expired. Please sign in again." : ""); }
+
+/* ---------------- shell ---------------- */
+const NAV = [["dashboard", "📊", "Dashboard"], ["payments", "💳", "Payments"], ["orders", "🧾", "All orders"], ["dishes", "🍽️", "Menu & prices"], ["staff", "👥", "Staff & salary"], ["messages", "✉️", "Messages"], ["settings", "⚙️", "Settings"]];
+async function boot() {
+  $("#root").innerHTML = `<div class="top-m"><span class="logo">Zayka<span>veda</span></span><button id="mb">☰</button></div>
+  <div class="app"><aside class="side" id="side"><a class="logo" href="../index.html">Zayka<span>veda</span></a>
+    ${NAV.map(([k, i, n]) => `<button class="nav-i" data-k="${k}">${i} ${n}<span class="badge" id="b-${k}" hidden></span></button>`).join("")}
+    <div class="sp"></div><button class="nav-i" id="out">↩ Sign out</button></aside><main class="main" id="main"></main></div>`;
+  document.querySelectorAll(".nav-i[data-k]").forEach(b => b.onclick = () => { view = b.dataset.k; $("#side").classList.remove("open"); go(); });
+  $("#out").onclick = () => logout(); $("#mb").onclick = () => $("#side").classList.toggle("open");
+  go();
+}
+async function go() {
+  document.querySelectorAll(".nav-i[data-k]").forEach(b => b.classList.toggle("on", b.dataset.k === view));
+  $("#main").innerHTML = '<div class="loader">Loading…</div>';
+  try { await VIEWS[view](); } catch (e) { $("#main").innerHTML = `<div class="alert err">${esc(e.message)}</div>`; }
+  refreshBadges();
+}
+async function refreshBadges() {
+  try {
+    const s = await api("/api/admin/stats?days=1");
+    [["payments", s.pending_payments], ["messages", s.unread_messages]].forEach(([k, n]) => { const b = $("#b-" + k); if (b) { b.hidden = !n; b.textContent = n; } });
+  } catch {}
+}
+const modal = html => { $("#modal").innerHTML = html; $("#mbg").classList.add("open"); };
+const closeModal = () => $("#mbg").classList.remove("open");
+$("#mbg").onclick = e => { if (e.target.id === "mbg") closeModal(); };
+
+/* ---------------- views ---------------- */
+const VIEWS = {
+  async dashboard() {
+    const s = await api("/api/admin/stats?days=14"); const max = Math.max(1, ...s.series.map(x => x.income));
+    $("#main").innerHTML = `<h2>Dashboard</h2>
+    <div class="kpis">
+      <div class="kpi"><small>Today's UPI income</small><strong>${rs(s.today_income)}</strong></div>
+      <div class="kpi"><small>Today's orders</small><strong>${s.today_orders}</strong></div>
+      <div class="kpi"><small>This month</small><strong>${rs(s.month_income)}</strong></div>
+      <div class="kpi"><small>Pending approvals</small><strong>${s.pending_payments}</strong></div>
+      <div class="kpi"><small>Est. monthly payroll</small><strong>${rs(s.monthly_payroll)}</strong></div>
+      <div class="kpi"><small>All-time income</small><strong>${rs(s.total_income)}</strong></div></div>
+    <div class="panel"><h3>Daily income — last 14 days</h3><div class="bars">${s.series.map(x => `<div title="${x.day}: ${rs(x.income)} (${x.orders} orders)"><span>${x.income ? Math.round(x.income) : ""}</span><i style="height:${Math.max(2, x.income / max * 100)}%"></i><small>${x.day.slice(8)}</small></div>`).join("")}</div></div>
+    <div class="panel"><h3>Top selling dishes</h3>${s.top_dishes.length ? `<table class="tbl"><tbody>${s.top_dishes.map(t => `<tr><td>${esc(t.name)}</td><td style="text-align:right"><b>${t.qty}</b> sold</td></tr>`).join("")}</tbody></table>` : '<p style="color:var(--muted)">No approved orders yet.</p>'}</div>`;
+  },
+
+  async payments() {
+    const list = await api("/api/admin/orders?payment=submitted");
+    $("#main").innerHTML = `<h2>Payments to verify</h2><p style="color:var(--muted);margin:-10px 0 18px">Check the UTR in your UPI app / bank SMS, then approve or deny.</p>
+    ${list.length ? list.map(o => `<div class="panel"><div class="row-flex" style="justify-content:space-between;margin:0">
+      <div><b>Order #${o.id}</b> · ${esc(o.customer_name)} · ${esc(o.phone)}<br><small style="color:var(--muted)">${o.created_at}</small></div><div style="font-size:1.4rem;font-family:var(--display);font-weight:700">${rs(o.total)}</div></div>
+      <p style="margin:10px 0;color:var(--muted);font-size:.9rem">${o.items.map(i => `${i.qty}× ${esc(i.name)}`).join(", ")}${o.address ? `<br>📍 ${esc(o.address)}` : ""}${o.note ? `<br>📝 ${esc(o.note)}` : ""}</p>
+      <div class="row-flex" style="margin:0"><span>UTR: <b style="font-family:monospace">${esc(o.utr)}</b></span><div class="acts" style="margin-left:auto"><button class="btn btn-ok btn-sm" data-a="${o.id}">✓ Approve & confirm</button><button class="btn btn-bad btn-sm" data-d="${o.id}">✕ Deny (not received)</button></div></div></div>`).join("") : '<div class="panel" style="text-align:center;color:var(--muted)">🎉 No payments waiting for verification.</div>'}`;
+    document.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { await api(`/api/admin/orders/${b.dataset.a}/approve`, "POST"); toast("Payment approved, order confirmed"); go(); });
+    document.querySelectorAll("[data-d]").forEach(b => b.onclick = async () => { if (confirm("Deny this payment and cancel the order?")) { await api(`/api/admin/orders/${b.dataset.d}/deny`, "POST"); toast("Payment denied"); go(); } });
+  },
+
+  async orders() {
+    const list = await api("/api/admin/orders");
+    $("#main").innerHTML = `<h2>All orders</h2><div class="panel scroll"><table class="tbl"><thead><tr><th>#</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Order</th><th></th></tr></thead><tbody>
+    ${list.map(o => `<tr><td>${o.id}</td><td>${esc(o.customer_name)}<br><small>${esc(o.phone)}</small></td><td style="max-width:260px">${o.items.map(i => `${i.qty}× ${esc(i.name)}`).join(", ")}</td><td><b>${rs(o.total)}</b></td>
+      <td><span class="status s-${o.payment_status}">${o.payment_status}</span></td><td><span class="status s-${o.order_status}">${o.order_status}</span></td>
+      <td><div class="acts">${o.payment_status === "submitted" ? `<button class="btn btn-ok btn-sm" data-a="${o.id}">Approve</button><button class="btn btn-bad btn-sm" data-d="${o.id}">Deny</button>` : ""}
+      ${o.payment_status === "approved" && o.order_status !== "completed" ? `<button class="btn btn-ghost btn-sm" data-s="${o.id}" data-v="${o.order_status === "confirmed" ? "preparing" : "completed"}">Mark ${o.order_status === "confirmed" ? "preparing" : "completed"}</button>` : ""}</div></td></tr>`).join("") || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">No orders yet</td></tr>'}</tbody></table></div>`;
+    document.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { await api(`/api/admin/orders/${b.dataset.a}/approve`, "POST"); go(); });
+    document.querySelectorAll("[data-d]").forEach(b => b.onclick = async () => { if (confirm("Deny this payment?")) { await api(`/api/admin/orders/${b.dataset.d}/deny`, "POST"); go(); } });
+    document.querySelectorAll("[data-s]").forEach(b => b.onclick = async () => { await api(`/api/admin/orders/${b.dataset.s}/status`, "POST", { status: b.dataset.v }); go(); });
+  },
+
+  async dishes() {
+    STATE.dishes = await api("/api/admin/dishes");
+    const draw = () => {
+      const q = ($("#dq")?.value || "").toLowerCase(), c = $("#dc")?.value || "";
+      const l = STATE.dishes.filter(d => (!c || d.cuisine === c) && (!q || d.name.toLowerCase().includes(q)));
+      $("#dt").innerHTML = l.map(d => `<tr><td>${esc(d.emoji)} <b>${esc(d.name)}</b><br><small>${d.cuisine} · ${esc(d.category)} · ${d.is_veg ? "Veg" : "Non-veg"}</small></td>
+        <td><input class="input" style="width:100px" type="number" min="0" step="1" value="${d.price}" data-p="${d.id}"></td>
+        <td><label class="chk"><input type="checkbox" ${d.available ? "checked" : ""} data-v="${d.id}"> On menu</label></td>
+        <td><div class="acts"><button class="btn btn-ghost btn-sm" data-e="${d.id}">Edit</button><button class="btn btn-bad btn-sm" data-x="${d.id}">Remove</button></div></td></tr>`).join("") || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No dishes</td></tr>';
+      document.querySelectorAll("[data-p]").forEach(i => i.onchange = async () => { const d = STATE.dishes.find(x => x.id == i.dataset.p); d.price = +i.value; await api("/api/admin/dishes/" + d.id, "PUT", d); toast("Price updated to " + rs(d.price)); });
+      document.querySelectorAll("[data-v]").forEach(i => i.onchange = async () => { const d = STATE.dishes.find(x => x.id == i.dataset.v); d.available = i.checked ? 1 : 0; await api("/api/admin/dishes/" + d.id, "PUT", d); toast(i.checked ? "Shown on menu" : "Hidden from menu"); });
+      document.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => { const d = STATE.dishes.find(x => x.id == b.dataset.x); if (confirm(`Remove "${d.name}" permanently?`)) { await api("/api/admin/dishes/" + d.id, "DELETE"); VIEWS.dishes(); } });
+      document.querySelectorAll("[data-e]").forEach(b => b.onclick = () => dishForm(STATE.dishes.find(x => x.id == b.dataset.e)));
+    };
+    $("#main").innerHTML = `<h2>Menu & prices</h2><div class="row-flex"><input class="input" id="dq" placeholder="Search dishes…"><select id="dc"><option value="">All cuisines</option><option>Indian</option><option>Chinese</option></select><button class="btn btn-primary" id="addD">+ Add dish</button></div>
+      <div class="panel scroll"><table class="tbl"><thead><tr><th>Dish</th><th>Price (₹)</th><th>Status</th><th></th></tr></thead><tbody id="dt"></tbody></table></div>`;
+    $("#dq").oninput = draw; $("#dc").onchange = draw; $("#addD").onclick = () => dishForm(); draw();
+  },
+
+  async staff() {
+    const list = await api("/api/admin/staff");
+    const m = list.filter(s => s.active).reduce((t, s) => t + (s.salary_type === "monthly" ? s.rate : s.rate * 30), 0);
+    $("#main").innerHTML = `<h2>Staff & salary</h2><div class="kpis"><div class="kpi"><small>Active staff</small><strong>${list.filter(s => s.active).length}</strong></div><div class="kpi"><small>Est. monthly payroll</small><strong>${rs(m)}</strong></div></div>
+    <div class="row-flex"><button class="btn btn-primary" id="addS">+ Add staff member</button></div>
+    <div class="panel scroll"><table class="tbl"><thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Salary</th><th>Joined</th><th></th></tr></thead><tbody>
+    ${list.map(s => `<tr style="${s.active ? "" : "opacity:.5"}"><td><b>${esc(s.name)}</b>${s.active ? "" : " <small>(inactive)</small>"}</td><td>${esc(s.role)}</td><td>${esc(s.phone)}</td><td>${rs(s.rate)} / ${s.salary_type === "monthly" ? "month" : "day"}</td><td>${esc(s.joined_on)}</td>
+    <td><div class="acts"><button class="btn btn-ghost btn-sm" data-e="${s.id}">Edit</button><button class="btn btn-bad btn-sm" data-x="${s.id}">Remove</button></div></td></tr>`).join("") || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">No staff yet</td></tr>'}</tbody></table></div>`;
+    $("#addS").onclick = () => staffForm();
+    document.querySelectorAll("[data-e]").forEach(b => b.onclick = () => staffForm(list.find(x => x.id == b.dataset.e)));
+    document.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => { if (confirm("Remove this staff member?")) { await api("/api/admin/staff/" + b.dataset.x, "DELETE"); go(); } });
+  },
+
+  async messages() {
+    const list = await api("/api/admin/messages");
+    $("#main").innerHTML = `<h2>Customer messages</h2>${list.map(m => `<div class="panel" style="${m.is_read ? "" : "border-left:4px solid var(--accent)"}"><div class="row-flex" style="justify-content:space-between;margin:0"><div><b>${esc(m.name)}</b> <small style="color:var(--muted)">${esc(m.email)} ${esc(m.phone)} · ${m.created_at}</small></div>
+      <div class="acts">${m.phone ? `<a class="btn btn-ghost btn-sm" target="_blank" rel="noopener" href="https://wa.me/91${esc(m.phone.replace(/\D/g, "").slice(-10))}">Reply on WhatsApp</a>` : ""}${m.is_read ? "" : `<button class="btn btn-ghost btn-sm" data-r="${m.id}">Mark read</button>`}<button class="btn btn-bad btn-sm" data-x="${m.id}">Delete</button></div></div>
+      <p style="margin-top:10px;white-space:pre-wrap">${esc(m.message)}</p></div>`).join("") || '<div class="panel" style="text-align:center;color:var(--muted)">No messages yet.</div>'}`;
+    document.querySelectorAll("[data-r]").forEach(b => b.onclick = async () => { await api(`/api/admin/messages/${b.dataset.r}/read`, "POST"); go(); });
+    document.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => { await api("/api/admin/messages/" + b.dataset.x, "DELETE"); go(); });
+  },
+
+  async settings() {
+    const s = await api("/api/admin/settings");
+    $("#main").innerHTML = `<h2>Settings</h2>
+    <form class="panel form" id="sf" style="max-width:560px"><h3>Payment & contact</h3>
+      <div><label>Your UPI ID (customers pay to this)</label><input class="input" name="upi_id" value="${esc(s.upi_id)}" placeholder="name@bank" required></div>
+      <div><label>Name shown in UPI app</label><input class="input" name="upi_name" value="${esc(s.upi_name)}"></div>
+      <div><label>WhatsApp number (with country code, digits only)</label><input class="input" name="whatsapp" value="${esc(s.whatsapp)}"></div>
+      <div><label>Owner name</label><input class="input" name="owner_name" value="${esc(s.owner_name)}"></div><button class="btn btn-primary">Save settings</button></form>
+    <form class="panel form" id="pf" style="max-width:560px"><h3>Change admin password</h3>
+      <div><label>Current password</label><input class="input" type="password" name="current" required autocomplete="current-password"></div>
+      <div><label>New password (min 8 characters)</label><input class="input" type="password" name="new" minlength="8" required autocomplete="new-password"></div><div id="pe"></div><button class="btn btn-primary">Change password</button></form>`;
+    $("#sf").onsubmit = async e => { e.preventDefault(); await api("/api/admin/settings", "PUT", Object.fromEntries(new FormData(e.target))); toast("Settings saved"); };
+    $("#pf").onsubmit = async e => { e.preventDefault(); try { await api("/api/admin/change-password", "POST", Object.fromEntries(new FormData(e.target))); toast("Password changed"); e.target.reset(); $("#pe").innerHTML = ""; } catch (er) { $("#pe").innerHTML = `<div class="alert err">${esc(er.message)}</div>`; } };
+  },
+};
+
+/* ---------------- forms ---------------- */
+function dishForm(d = {}) {
+  modal(`<form class="form" id="df"><h3>${d.id ? "Edit dish" : "Add dish"}</h3>
+    <div><label>Name</label><input class="input" name="name" required value="${esc(d.name)}"></div>
+    <div class="two"><div><label>Cuisine</label><select name="cuisine"><option ${d.cuisine === "Indian" ? "selected" : ""}>Indian</option><option ${d.cuisine === "Chinese" ? "selected" : ""}>Chinese</option></select></div>
+      <div><label>Category</label><input class="input" name="category" list="cats" value="${esc(d.category || "Main Course")}"><datalist id="cats">${[...new Set(STATE.dishes.map(x => x.category))].map(c => `<option>${esc(c)}</option>`).join("")}</datalist></div></div>
+    <div class="two"><div><label>Price (₹)</label><input class="input" type="number" name="price" min="0" step="1" required value="${d.price ?? ""}"></div>
+      <div><label>Emoji</label><input class="input" name="emoji" maxlength="4" value="${esc(d.emoji || "🍽️")}"></div></div>
+    <div class="two"><div><label>Spice level</label><select name="spice">${["Mild", "Medium", "Hot", "Extra hot"].map((t, i) => `<option value="${i}" ${d.spice == i ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+      <div style="padding-top:22px"><label class="chk"><input type="checkbox" name="is_veg" ${d.is_veg !== 0 ? "checked" : ""}> Vegetarian</label><label class="chk"><input type="checkbox" name="featured" ${d.featured ? "checked" : ""}> Show on home page</label></div></div>
+    <div><label>Description</label><textarea name="description" rows="2">${esc(d.description)}</textarea></div>
+    <div id="de"></div><div class="acts"><button class="btn btn-primary">Save</button><button type="button" class="btn btn-ghost" id="cx">Cancel</button></div></form>`);
+  $("#cx").onclick = closeModal;
+  $("#df").onsubmit = async e => {
+    e.preventDefault(); const f = new FormData(e.target);
+    const body = { name: f.get("name"), cuisine: f.get("cuisine"), category: f.get("category"), price: f.get("price"), emoji: f.get("emoji"), spice: +f.get("spice"), description: f.get("description"), is_veg: f.has("is_veg"), featured: f.has("featured"), available: d.id ? d.available : 1 };
+    try { await api(d.id ? "/api/admin/dishes/" + d.id : "/api/admin/dishes", d.id ? "PUT" : "POST", body); closeModal(); toast("Saved"); VIEWS.dishes(); }
+    catch (er) { $("#de").innerHTML = `<div class="alert err">${esc(er.message)}</div>`; }
+  };
+}
+function staffForm(s = {}) {
+  modal(`<form class="form" id="sfm"><h3>${s.id ? "Edit staff" : "Add staff member"}</h3>
+    <div class="two"><div><label>Name</label><input class="input" name="name" required value="${esc(s.name)}"></div><div><label>Role</label><input class="input" name="role" placeholder="Chef, Waiter…" value="${esc(s.role)}"></div></div>
+    <div class="two"><div><label>Phone</label><input class="input" name="phone" value="${esc(s.phone)}"></div><div><label>Joined on</label><input class="input" type="date" name="joined_on" value="${esc(s.joined_on)}"></div></div>
+    <div class="two"><div><label>Salary type</label><select name="salary_type"><option value="monthly" ${s.salary_type !== "daily" ? "selected" : ""}>Monthly</option><option value="daily" ${s.salary_type === "daily" ? "selected" : ""}>Daily wage</option></select></div>
+      <div><label>Rate (₹)</label><input class="input" type="number" name="rate" min="0" required value="${s.rate ?? ""}"></div></div>
+    <label class="chk"><input type="checkbox" name="active" ${s.active !== 0 ? "checked" : ""}> Currently working</label>
+    <div id="se"></div><div class="acts"><button class="btn btn-primary">Save</button><button type="button" class="btn btn-ghost" id="cx">Cancel</button></div></form>`);
+  $("#cx").onclick = closeModal;
+  $("#sfm").onsubmit = async e => {
+    e.preventDefault(); const f = new FormData(e.target); const body = Object.fromEntries(f); body.active = f.has("active");
+    try { await api(s.id ? "/api/admin/staff/" + s.id : "/api/admin/staff", s.id ? "PUT" : "POST", body); closeModal(); toast("Saved"); go(); }
+    catch (er) { $("#se").innerHTML = `<div class="alert err">${esc(er.message)}</div>`; }
+  };
+}
+
+TOKEN ? boot() : showLogin();
+</script>
+</body>
+</html>

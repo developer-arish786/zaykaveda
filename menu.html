@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Menu — Zaykaveda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <section style="padding-bottom:24px"><div class="wrap">
+    <p class="eyebrow">The Menu</p><h1 style="font-size:clamp(2.2rem,5vw,3.6rem);margin:8px 0">Indian &amp; Chinese, all in one place</h1>
+    <p class="lead">Add dishes to your cart, or tap <b>Buy now</b> to order a single dish straight away.</p>
+  </div></section>
+
+  <div class="filters"><div class="wrap">
+    <div class="row">
+      <input class="input" id="q" type="search" placeholder="Search dishes…  (e.g. paneer, noodles)">
+      <select id="cat"><option value="">All categories</option></select>
+      <select id="diet"><option value="">Veg &amp; Non-veg</option><option value="veg">Veg only</option><option value="nonveg">Non-veg only</option></select>
+      <select id="spice"><option value="">Any spice</option><option value="0">Mild (not spicy)</option><option value="1">Medium</option><option value="2">Hot</option><option value="3">Extra hot</option></select>
+      <select id="price"><option value="">Any price</option><option value="100">Under ₹100</option><option value="200">Under ₹200</option><option value="300">Under ₹300</option><option value="999999">₹300 and above</option></select>
+      <select id="sort"><option value="">Sort: Recommended</option><option value="lh">Price: low to high</option><option value="hl">Price: high to low</option><option value="az">Name: A–Z</option></select>
+    </div>
+    <div class="chips" id="cuisine">
+      <button class="chip on" data-v="">All</button><button class="chip" data-v="Indian">🇮🇳 Indian</button><button class="chip" data-v="Chinese">🥢 Chinese</button>
+      <button class="chip" id="reset" style="margin-left:auto">Reset filters</button>
+    </div>
+  </div></div>
+
+  <section style="padding-top:8px"><div class="wrap">
+    <p class="count" id="count"></p>
+    <div id="list" class="grid g3"><div class="loader">Loading menu…</div></div>
+  </div></section>
+</main>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+Z.init("menu.html");
+let ALL = [], cuisine = "";
+const $ = id => document.getElementById(id);
+const spiceTxt = ["Mild", "Medium", "Hot", "Extra hot"];
+
+function render() {
+  const q = $("q").value.trim().toLowerCase(), cat = $("cat").value, diet = $("diet").value,
+        sp = $("spice").value, pr = $("price").value, sort = $("sort").value;
+  let l = ALL.filter(d =>
+    (!cuisine || d.cuisine === cuisine) && (!cat || d.category === cat) &&
+    (!diet || (diet === "veg") === !!d.is_veg) && (sp === "" || d.spice == sp) &&
+    (!q || (d.name + " " + d.description + " " + d.category).toLowerCase().includes(q)) &&
+    (!pr || (pr === "999999" ? d.price >= 300 : d.price < +pr)));
+  if (sort === "lh") l.sort((a, b) => a.price - b.price);
+  if (sort === "hl") l.sort((a, b) => b.price - a.price);
+  if (sort === "az") l.sort((a, b) => a.name.localeCompare(b.name));
+  $("count").textContent = l.length + (l.length === 1 ? " dish" : " dishes");
+  $("list").innerHTML = l.length ? l.map(d => `
+    <div class="card dish ${d.cuisine.toLowerCase()}">
+      <div class="pic">${Z.esc(d.emoji)}</div>
+      <div class="top"><h3>${Z.esc(d.name)}</h3><span class="vegmark ${d.is_veg ? "" : "nv"}" title="${d.is_veg ? "Veg" : "Non-veg"}"></span></div>
+      <div class="tags"><span class="tag">${d.cuisine}</span><span class="tag">${Z.esc(d.category)}</span>${d.spice ? `<span class="tag">🌶 ${spiceTxt[d.spice]}</span>` : ""}</div>
+      <p>${Z.esc(d.description)}</p>
+      <div class="buy-row"><span class="price">${Z.rs(d.price)}</span>
+        <div class="btns"><button class="btn btn-ghost btn-sm" data-add="${d.id}">Add to cart</button><button class="btn btn-primary btn-sm" data-buy="${d.id}">Buy now</button></div></div>
+    </div>`).join("") : '<p class="empty" style="grid-column:1/-1">No dishes match these filters.</p>';
+  $("list").querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+    const d = ALL.find(x => x.id == b.dataset.add); Z.cart.add(d); Z.toast(d.name + " added to cart");
+  });
+  $("list").querySelectorAll("[data-buy]").forEach(b => b.onclick = () => {
+    const d = ALL.find(x => x.id == b.dataset.buy);
+    try { sessionStorage.setItem("zv_buy", JSON.stringify([{ id: d.id, name: d.name, price: d.price, qty: 1 }])); } catch {}
+    location.href = "checkout.html?buy=1";
+  });
+}
+
+Z.api("/api/dishes").then(list => {
+  ALL = list;
+  const cats = [...new Set(list.map(d => d.category))].sort();
+  $("cat").innerHTML += cats.map(c => `<option>${Z.esc(c)}</option>`).join("");
+  render();
+}).catch(e => $("list").innerHTML = `<p class="empty" style="grid-column:1/-1">${Z.esc(e.message)}</p>`);
+
+["q", "cat", "diet", "spice", "price", "sort"].forEach(id => $(id).addEventListener("input", render));
+document.querySelectorAll("#cuisine .chip[data-v]").forEach(c => c.onclick = () => {
+  cuisine = c.dataset.v;
+  document.querySelectorAll("#cuisine .chip[data-v]").forEach(x => x.classList.toggle("on", x === c));
+  render();
+});
+$("reset").onclick = () => {
+  ["q", "cat", "diet", "spice", "price", "sort"].forEach(id => $(id).value = "");
+  cuisine = ""; document.querySelectorAll("#cuisine .chip[data-v]").forEach((x, i) => x.classList.toggle("on", i === 0)); render();
+};
+</script>
+</body>
+</html>

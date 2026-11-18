@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About — Zaykaveda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <section><div class="wrap split">
+    <div class="prose"><p class="eyebrow">About us</p><h1 style="font-size:clamp(2.2rem,5vw,3.6rem);margin:8px 0">The story of Zaykaveda</h1>
+      <p><b>Zayka</b> means taste; <b>veda</b> means knowledge. Zaykaveda is our promise that good food comes from knowing your ingredients, your spices and your guests.</p>
+      <p>Founded by <b>Arish Shah</b>, the restaurant serves two much-loved menus under one roof: North and South Indian dishes cooked in the tandoor and on the tawa, and the Indo-Chinese dishes — manchurian, hakka noodles, momos, chilli paneer — that India has made its own.</p>
+      <p>We cook to order, keep the menu honest and the prices fair, and confirm every online order personally.</p>
+      <div class="stat-row"><div><strong>2</strong><span>Cuisines</span></div><div><strong>11–11</strong><span>Open daily</span></div><div><strong>100%</strong><span>Cooked to order</span></div></div>
+    </div>
+    <div class="card" style="background:linear-gradient(135deg,#fff1e6,#fff)"><h3>Our values</h3>
+      <div class="line"><div><strong>🌿 Freshness</strong><br><small>Daily-bought produce, no stale leftovers.</small></div></div>
+      <div class="line"><div><strong>🤝 Honesty</strong><br><small>Clear veg / non-veg marking and transparent prices.</small></div></div>
+      <div class="line" style="border:0"><div><strong>⚡ Care</strong><br><small>Every order checked and confirmed by the owner.</small></div></div></div>
+  </div></section>
+
+  <section style="background:var(--soft)"><div class="wrap">
+    <h2 style="margin-bottom:20px">Meet the owner</h2>
+    <div class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+      <div style="width:72px;height:72px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;font-family:var(--display);font-size:1.8rem;color:var(--accent)">A</div>
+      <div style="flex:1;min-width:220px"><h3>Arish Shah</h3><p style="color:var(--muted)">Founder &amp; owner. Message directly on WhatsApp for bulk orders, parties and feedback.</p></div>
+      <a class="btn btn-primary wa-inline" id="waBtn" href="#" target="_blank" rel="noopener">WhatsApp Arish</a>
+    </div>
+  </div></section>
+
+  <section><div class="wrap prose">
+    <h2>Copyright &amp; legal</h2>
+    <p>© <span id="yr"></span> Zaykaveda. All rights reserved. The name “Zaykaveda”, the logo, website design, written content and menu descriptions are the intellectual property of the restaurant owner. They may not be copied, reproduced or used commercially without prior written permission.</p>
+    <p>Prices are in Indian Rupees (₹) and may change without notice. Dish images are illustrative. Please inform us of any food allergies before ordering.</p>
+  </div></section>
+</main>
+<script src="assets/config.js"></script>
+<script src="assets/app.js"></script>
+<script>
+Z.init("about.html");
+document.getElementById("yr").textContent = new Date().getFullYear();
+const b = document.getElementById("waBtn"); b.innerHTML = Z.waSvg + " WhatsApp Arish";
+const setB = () => b.href = Z.waLink("Hello Arish, I found Zaykaveda online."); setB(); Z.onConfig = setB;
+</script>
+</body>
+</html>
